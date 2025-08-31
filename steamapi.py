@@ -4,33 +4,32 @@ import json
 #http://api.steampowered.com/<interface name>/<method name>/v<version>/?key=<api key>&format=<format>
 
 #List of API methods
-apilist = requests.get("https://api.steampowered.com/ISteamWebAPIUtil/GetSupportedAPIList/v0001/")
-if apilist.status_code == 200:
-    apilist = apilist.json()
+apilist = requests.get(f'https://api.steampowered.com/ISteamWebAPIUtil/GetSupportedAPIList/v0001/')
+
+#Checks if the request is valid and writes to apilist.json
+if apilist.status_code != 200:
+    print(f'Error: {apilist.status_code}. Failed to get info from {apilist.url}')
 else:
-    print(f'Error: {apilist.status_code}')
-    apilist = None
-        
-with open('list.json', 'w', encoding='utf-8') as f:
-    json.dump(apilist, f, ensure_ascii=False, indent=4)
+    with open('list.json', 'w', encoding='utf-8') as f:
+        json.dump(apilist.json(), f, ensure_ascii=False, indent=4)
 
 
 #API key
 key = "0D42AB8DF7C4200A9F811E08E4D5FF41"
 
-response = requests.get("http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=" + key + "&steamids=76561198315232228")
-url = response.url
+playerSummary = requests.get(f'http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key={key}&steamids=76561198315232228')
 
-if response.status_code == 200:
-    data = response.json()
-    #print(data)
+if playerSummary.status_code != 200:
+    print(f'Error: {playerSummary.status_code} Failed to get info from {playerSummary.url}')
 else:
-    #error handling
-    print(f'Error: {response.status_code}')
-    data = None
-    
-    
-    
-#File operations
-with open('data.json', 'w', encoding='utf-8') as f:
-    json.dump(data, f, ensure_ascii=False, indent=4)
+    with open('playerSummary.json', 'w', encoding='utf-8') as f:
+        json.dump(playerSummary.json(), f, ensure_ascii=False, indent=4)
+
+
+clientver = requests.get('http://api.steampowered.com/IGCVersion_1046930/GetClientVersion/v0001/')
+
+if clientver.status_code != 200:
+    print(f'Error: {clientver.status_code}. Failed to get info from {clientver.url}')
+else:
+    with open('clientver.json', 'w', encoding='utf-8') as f:
+        json.dump(clientver.json(), f, ensure_ascii=False, indent=4)
