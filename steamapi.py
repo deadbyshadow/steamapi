@@ -3,8 +3,39 @@ import json
 import mysql.connector
 import time
 import sys
+import sched
 
 #http://api.steampowered.com/<interface name>/<method name>/v<version>/?key=<api key>&format=<format>
+
+def GetAppList():
+    try:
+        apprequest = requests.get(f'https://api.steampowered.com/ISteamApps/GetAppList/v2/')
+    except:
+        print('Failed to get response from steam')
+
+    appjson = apprequest.json()
+    appid = []
+    name = []
+    for i in range (len(appjson['applist']['apps'])):
+        appid.append(appjson['applist']['apps'][i]['appid'])
+        name.append(appjson['applist']['apps'][i]['name'])
+        
+    applist = {
+        'appid': appid,
+        'name' : name
+    }
+    
+    for i in range(len(applist['appid'])):
+        try:
+            dbcursor.execute(f'SELECT appid FROM applist WHERE appid = {applist["appid"][i]}')
+        except:
+            print('sql error in applist')
+        try: 
+            x = dbcursor.fetchone()[0]
+        except:
+            dbcursor.execute(f'INSERT INTO applist (appid, name) VALUES {applist["appid"][i], applist["name"][i]}')
+    db.commit()
+    scheduler.enter(3600, 1, GetApplist)
 
 
 if __name__ == '__main__':
@@ -34,14 +65,24 @@ if __name__ == '__main__':
     #Stats for the end of the script
     statupdate = 0
     statnew = 0
-    statround = []
+    statround = [0, 0, 0]
+    
+    scheduler = sched.scheduler(time.time, time.sleep)
+    scheduler.enter(0, 1, GetAppList)
     
     #Crawl all the public friendslists and adds them to idlist if they are not in it yet
     while calls + (len(idlist) // 100) <= maxcalls:
         print(f'{calls} calls.')
-        friendlist = requests.get(f'http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={key}&steamid={idlist[calls]}&relationship=friend')
+        try:
+            friendlist = requests.get(f'http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={key}&steamid={idlist[calls]}&relationship=friend')
+            calls = calls + 1
+        except:
+            print('Request failed waiting for 1 minute...')
+            time.sleep(60)
+            friendlist = requests.get(f'http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={key}&steamid={idlist[calls]}&relationship=friend')
+            calls = calls + 1
         #idlist.append(idlist.pop())
-        calls = calls + 1
+        
         
         #ERROR HANDLING
         # 401: In this case it is probably because the friend list is private
@@ -185,6 +226,7 @@ if __name__ == '__main__':
     print(f'\nThe number of rows in the database: {dbfetch[0][0]}')
     print(f'The number of records updated: {statupdate}.\nThe number of new records: {statnew}.\nAnd the number of requests: {statnew+statupdate}.')
     
+    scheduler.run()
     
     
     
