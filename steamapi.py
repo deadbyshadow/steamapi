@@ -3,13 +3,24 @@ import json
 import mysql.connector
 import time
 import sys
-import sched
+import asyncio
 
 #http://api.steampowered.com/<interface name>/<method name>/v<version>/?key=<api key>&format=<format>
 
-def GetAppList():
+class Requests:
+    key = open('key.txt')
+    key = key.read()
+    idlist = []
+    idlist.append(76561198315232228)
+    calls = 0
+    maxcalls = 300
+    GetAppList = 'https://api.steampowered.com/ISteamApps/GetAppList/v2/'
+    GetFriendList = f'http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={key}&steamid={idlist[calls]}&relationship=friend' #TODO Fix idlist[calls]
+
+async def GetAppList():
     try:
-        req = requests.get(f'https://api.steampowered.com/ISteamApps/GetAppList/v2/')
+        Requests.calls += 1
+        req = requests.get(Requests.GetAppList)
     except:
         print('Failed to get response from steam')
 
@@ -35,17 +46,15 @@ def GetAppList():
         except:
             dbcursor.execute(f'INSERT INTO applist (appid, name) VALUES {applist["appid"][i], applist["name"][i]}')
     db.commit()
-    scheduler.enter(3600, 1, GetAppList)
     
-def GetFriendList(key, calls, steamid):
-    idlist = []
-    idlist.append(steamid)
-    while calls + (len(idlist) // 100) <= maxcalls:
-        try:
-            req = requests.get(f'http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={key}&steamid={idlist[calls]}&relationship=friend')
-            calls = calls + 1
-        except:
-            print('Request failed')
+    
+def GetFriendList():
+    while Requests.calls + (len(Requests.idlist) // 100) <= Requests.maxcalls:
+        #try:
+        Requests.calls += 1
+        req = requests.get(Requests.GetFriendList)
+        #except:
+            #print('Request failed')
         if req.status_code == 401:
             print(f'Error {req.status_code} Friendlist probably private skipping...')
         elif req.status_code == 429:
@@ -64,9 +73,9 @@ def GetFriendList(key, calls, steamid):
             json = req.json()
             json = json['friendslist']['friends']
             for i in range(len(json)):
-                if int(json[i]['steamid']) not in idlist:
-                    idlist.append(int(json[i]["steamid"]))
-    return(idlist, calls)
+                if int(json[i]['steamid']) not in Requests.idlist:
+                    Requests.idlist.append(int(json[i]["steamid"]))
+    return(Requests.idlist, len(Requests.idlist), Requests.calls)
         
         
 
@@ -80,25 +89,23 @@ if __name__ == '__main__':
         database = 'steam'
     )
     dbcursor = db.cursor()
-
     #API key
-    key = open('key.txt')
-    key = key.read()
-
-    #SteamIDs and all lists in connection with them
-    steamid = 76561198315232228
-    
-    #The number of api calls
-    maxcalls = 10
-    calls = 0
+    #key = open('key.txt')
+    #key = key.read()
+#
+    ##SteamIDs and all lists in connection with them
+    #steamid = 76561198315232228
+    #
+    ##The number of api calls
+    #maxcalls = 10
+    #calls = 0
     
     #Stats for the end of the script
     statupdate = 0
     statnew = 0
     statround = [0, 0, 0]
     
-    scheduler = sched.scheduler(time.time, time.sleep)
-    scheduler.enter(0, 1, GetAppList)
+    #asyncio.run(GetAppList())
     
     #Crawl all the public friendslists and adds them to idlist if they are not in it yet
     #while calls + (len(idlist) // 100) <= maxcalls:
@@ -137,7 +144,7 @@ if __name__ == '__main__':
     #        for i in range(len(friendData)):
     #            if int(friendData[i]['steamid']) not in idlist:
     #                idlist.append(int(friendData[i]["steamid"]))
-    print(GetFriendList(key, calls, steamid)[0])
+    print(GetFriendList())
 
     #while 0 < len(idlist) and calls < maxcalls:
     #    time.sleep(0.05)
@@ -256,11 +263,6 @@ if __name__ == '__main__':
     #print(f'\nThe number of rows in the database: {dbfetch[0][0]}')
     #print(f'The number of records updated: {statupdate}.\nThe number of new records: {statnew}.\nAnd the number of requests: {statnew+statupdate}.')
     #
-    scheduler.run()
-       
-            
-            
-            
             
             
             
